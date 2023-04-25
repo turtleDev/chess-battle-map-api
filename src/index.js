@@ -13,9 +13,31 @@ const getChessDotComPGN = async (linkUrl) => {
 	if (!gameId) {
 		return new Response('unable to parse gameId from link', {status: 400})
 	}
-	const liveData = await fetch(`https://www.chess.com/callback/live/game/${gameId}`)
-	return liveData
-
+	const gameData = await fetch(`https://www.chess.com/callback/live/game/${gameId}`)
+	if (!gameData.ok) {
+		return new Response(`unable to fetch game data for game id: ${gameId}`)
+	}
+	const game = await gameData.json();
+	const players = Object.values(game.players).map(player => player.username);
+	const date = game.game.pgnHeaders.Date.split('.').slice(0, 2).join('/')
+	for (let i = 0; i < players.length; i++) {
+		const player = players[i];
+		const monthlyGamesLink = `https://api.chess.com/pub/player/${player}/games/${date}`;
+		let playerMonthlyGames = await fetch(monthlyGamesLink)
+		if (playerMonthlyGames.ok) {
+			const { games } = await playerMonthlyGames.json();
+			for (let g = 0; g < games.length; g++) {
+				if (games[g].url.endsWith(gameId)) {
+					return new Response(games[g].pgn, {
+						headers: {
+							"content-type": "application/x-chess-pgn"
+						}
+					});
+				}
+			}
+		}
+	}
+	return new Response(`unable to locate pgn for game id: ${gameId}`, { status: 400 });
 };
 
 const router = Router();
