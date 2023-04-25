@@ -46,7 +46,11 @@ const getChessDotComPGN = async (linkUrl) => {
 	if (!pgn) {
 		return new Response(`unable to locate pgn for game id: ${gameId}`, { status: 400 });
 	}
-	return new Response(pgn, { headers: { 'content-type': 'application/x-chess-pgn' } });
+	const headers = {
+		'content-type': 'application/x-chess-pgn',
+		'access-control-allow-origin': '*'
+	};
+	return new Response(pgn, { headers });
 };
 
 const router = Router();

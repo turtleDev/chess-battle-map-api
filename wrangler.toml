@@ -1,3 +1,4 @@
 name = "chess-battle-map-worker"
 main = "src/index.js"
 compatibility_date = "2023-04-24"
+route = { pattern = "workers.turtledev.in", custom_domain = true }
