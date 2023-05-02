@@ -12,6 +12,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "chess.js": "^1.0.0-beta.5",
     "itty-router": "^3.0.12"
   }
 }

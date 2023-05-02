@@ -1,57 +1,77 @@
 import { Router } from 'itty-router';
 
-const getGameId = path => {
-	const match = /\/game\/live\/(.*)/.exec(path)
-	if (!match) {
-		return null;
+const RESP_HEADERS = {
+	'content-type': 'application/x-chess-pgn',
+	'access-control-allow-origin': '*'
+}
+
+class ChessDotComProxy {
+	constructor(linkUrl) {
+		this.linkUrl = linkUrl;
 	}
-	return match[1];
-};
+	async PGN() {
+		const gameId = this.getGameId(this.linkUrl.pathname);
+		if (!gameId) {
+			return new Response('unable to parse gameId from link', { status: 400 })
+		}
+		const gameData = await fetch(`https://www.chess.com/callback/live/game/${gameId}`)
+		if (!gameData.ok) {
+			return new Response(`unable to fetch game data for game id: ${gameId}`)
+		}
+		const pgn = await this.pgnFromGameData(gameData)
+		if (!pgn) {
+			return new Response(`unable to locate pgn for game id: ${gameId}`, { status: 400 });
+		}
+		return new Response(pgn, { headers: RESP_HEADERS });
+	}
+	getGameId(path) {
+		const match = /\/game\/live\/(.*)/.exec(path)
+		if (!match) {
+			return null;
+		}
+		return match[1];
+	}
+	async pgnFromGameData(gameData) {
+		let { players, game } = await gameData.json();
+		players = Object.values(players).map(player => player.username);
+		const date = game.pgnHeaders.Date
+			.split('.')
+			.slice(0, 2)
+			.join('/');
 
-const pgnFromGameData = async (gameData) => {
-	let { players, game } = await gameData.json();
-	players = Object.values(players).map(player => player.username);
-	const date = game.pgnHeaders.Date
-		.split('.')
-		.slice(0, 2)
-		.join('/');
-
-	for (let i = 0; i < players.length; i++) {
-		const player = players[i];
-		const monthlyGamesLink = `https://api.chess.com/pub/player/${player}/games/${date}`;
-		let playerMonthlyGames = await fetch(monthlyGamesLink)
-		if (playerMonthlyGames.ok) {
-			const { games } = await playerMonthlyGames.json();
-			for (let g = 0; g < games.length; g++) {
-				const candidateGame = games[g];
-				if (candidateGame.url.endsWith(game.id)) {
-					return candidateGame.pgn;
+		for (let i = 0; i < players.length; i++) {
+			const player = players[i];
+			const monthlyGamesLink = `https://api.chess.com/pub/player/${player}/games/${date}`;
+			let playerMonthlyGames = await fetch(monthlyGamesLink)
+			if (playerMonthlyGames.ok) {
+				const { games } = await playerMonthlyGames.json();
+				for (let g = 0; g < games.length; g++) {
+					const candidateGame = games[g];
+					if (candidateGame.url.endsWith(game.id)) {
+						return candidateGame.pgn;
+					}
 				}
 			}
 		}
+		return null;
 	}
-	return null;
 }
 
-const getChessDotComPGN = async (linkUrl) => {
-	const gameId = getGameId(linkUrl.pathname);
-	if (!gameId) {
-		return new Response('unable to parse gameId from link', { status: 400 })
+class LichessProxy {
+	constructor(linkUrl) {
+		this.linkUrl = linkUrl;
 	}
-	const gameData = await fetch(`https://www.chess.com/callback/live/game/${gameId}`)
-	if (!gameData.ok) {
-		return new Response(`unable to fetch game data for game id: ${gameId}`)
+	async PGN() {
+		const gameId = this.linkUrl.pathname.replace('/', '');
+		const res = await fetch(`https://lichess.org/game/export/${gameId}`);
+		if (res.ok) {
+			const pgn = await res.text();
+			return new Response(pgn, { headers: RESP_HEADERS });
+		}
+		return res;
 	}
-	const pgn = await pgnFromGameData(gameData)
-	if (!pgn) {
-		return new Response(`unable to locate pgn for game id: ${gameId}`, { status: 400 });
-	}
-	const headers = {
-		'content-type': 'application/x-chess-pgn',
-		'access-control-allow-origin': '*'
-	};
-	return new Response(pgn, { headers });
-};
+}
+
 
 const router = Router();
 
@@ -66,7 +86,9 @@ router.get('/api/chess-battle-map/pgn', async request => {
 	const linkUrl = new URL(link);
 	switch (linkUrl.host) {
 		case 'www.chess.com':
-			return await getChessDotComPGN(linkUrl)
+			return await new ChessDotComProxy(linkUrl).PGN();
+		case 'lichess.org':
+			return await new LichessProxy(linkUrl).PGN();
 		default:
 			return new Response(`unsupported host: ${linkUrl.host}`)
 	}
