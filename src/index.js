@@ -5,7 +5,7 @@ const RESP_HEADERS = {
 	'access-control-allow-origin': '*'
 }
 
-class ChessDotComProxy {
+class ChessDotComClient {
 	constructor(linkUrl) {
 		this.linkUrl = linkUrl;
 	}
@@ -57,7 +57,7 @@ class ChessDotComProxy {
 	}
 }
 
-class LichessProxy {
+class LichessClient {
 	constructor(linkUrl) {
 		this.linkUrl = linkUrl;
 	}
@@ -86,9 +86,9 @@ router.get('/api/chess-battle-map/pgn', async request => {
 	const linkUrl = new URL(link);
 	switch (linkUrl.host) {
 		case 'www.chess.com':
-			return await new ChessDotComProxy(linkUrl).PGN();
+			return await new ChessDotComClient(linkUrl).PGN();
 		case 'lichess.org':
-			return await new LichessProxy(linkUrl).PGN();
+			return await new LichessClient(linkUrl).PGN();
 		default:
 			return new Response(`unsupported host: ${linkUrl.host}`)
 	}
