@@ -45,4 +45,34 @@ describe("Worker", () => {
 			throw Error("didn't get a response from worker")
 		}
 	}, TIMEOUT_MS)
+
+	it("can get PGN of a lichess.org game with /{gameId}/black link", async () => {
+		const link = 'https://lichess.org/96UwvnwD/black#6';
+		const resp  = await worker.fetch(`http://localhost/api/chess-battle-map/pgn?link=${encodeURIComponent(link)}`);
+		if (resp) {
+			expect(resp.headers.get('content-type')).toEqual('application/x-chess-pgn')
+			let text = await resp.text();
+			expect(text).toContain('[Black "bitbanger"]')
+
+			const c = new Chess();
+			c.loadPgn(text)
+		} else {
+			throw Error("didn't get a response from worker")
+		}
+	}, TIMEOUT_MS)
+
+	it("can get PGN of a lichess.org game with longer than 8 digit gameId", async () => {
+		const link = 'https://lichess.org/96UwvnwDyMNj';
+		const resp  = await worker.fetch(`http://localhost/api/chess-battle-map/pgn?link=${encodeURIComponent(link)}`);
+		if (resp) {
+			expect(resp.headers.get('content-type')).toEqual('application/x-chess-pgn')
+			let text = await resp.text();
+			expect(text).toContain('[Black "bitbanger"]')
+
+			const c = new Chess();
+			c.loadPgn(text)
+		} else {
+			throw Error("didn't get a response from worker")
+		}
+	}, TIMEOUT_MS)
 });

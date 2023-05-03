@@ -58,17 +58,30 @@ class ChessDotComClient {
 }
 
 class LichessClient {
+	
+	LICHESS_GAME_ID_LENGTH = 8;
+
 	constructor(linkUrl) {
 		this.linkUrl = linkUrl;
 	}
 	async PGN() {
-		const gameId = this.linkUrl.pathname.replace('/', '');
+		const gameId = this.getGameId(this.linkUrl.pathname);
+		if (!gameId) {
+			return new Response(`unable to parse gameId from link: ${this.linkUrl.toString()}`)
+		}
 		const res = await fetch(`https://lichess.org/game/export/${gameId}`);
 		if (res.ok) {
 			const pgn = await res.text();
 			return new Response(pgn, { headers: RESP_HEADERS });
 		}
 		return res;
+	}
+	getGameId(path) {
+		const match = /^\/([^\/]*)\/?.*$/.exec(path);
+		if (!match) {
+			return null;
+		}
+		return match[1].slice(0, this.LICHESS_GAME_ID_LENGTH);
 	}
 }
 
